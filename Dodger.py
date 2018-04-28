@@ -61,6 +61,7 @@ group_manager.add_group('power_up')
 group_manager.add_group('projectile')
 group_manager.add_group('gui')
 
+# Screen text
 top_banner = pygame.sprite.Sprite()
 top_banner.image = pygame.Surface([SCREEN_WIDTH, 100])
 top_banner.image.fill([255, 255, 255])
@@ -69,8 +70,10 @@ top_banner.rect.x = 0
 top_banner.rect.y = 0
 group_manager.insert('gui', top_banner)
 
+# Load a font, this should just load w/e is the system default
 gui_font = pygame.font.Font(None, 24)
 
+# Build the player sprite, it lives in global space so we can update it easily
 player = DodgerSprite(SCREEN_WIDTH // 2 + PLAYER_SIZE, SCREEN_HEIGHT - (PLAYER_SIZE * 5),
                       surface_cache.get_surface('player'))
 group_manager.insert('player', player)
@@ -86,9 +89,9 @@ def group_updates(dt):
     pygame.sprite.groupcollide(group_manager.get_raw_group('projectile'), group_manager.get_raw_group('enemy'), True,
                                True)
     killed = alive_before - group_manager.count('enemy')
-    PLAYER_SCORE += killed
+    PLAYER_SCORE += killed  # add any kills to the score
     for sprite in group_manager.get_sprites('projectile'):
-        sprite.move(0, -PROJECTILE_SPEED * dt)
+        sprite.move(0, -PROJECTILE_SPEED * dt)  # this is negative because we need it to go up
         if sprite.rect.y < 0 or sprite.rect.y > SCREEN_HEIGHT:
             sprite.kill()
     for sprite in group_manager.get_sprites('enemy'):
@@ -98,7 +101,7 @@ def group_updates(dt):
     collisions = pygame.sprite.spritecollideany(player, group_manager.get_raw_group('enemy'))
     if collisions is not None:
         collisions.kill()
-        PLAYER_SCORE -= 1
+        PLAYER_SCORE -= 1  # if we got killed, sub a score and reset the player
         player.kill()
         player = DodgerSprite(SCREEN_WIDTH // 2 + PLAYER_SIZE, SCREEN_HEIGHT - (PLAYER_SIZE * 5),
                               surface_cache.get_surface('player'))
