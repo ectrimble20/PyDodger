@@ -1,0 +1,32 @@
+PyDodger
+
+This is a Dodger clone.
+
+In dodger, the player takes control of the white box, they can move up, down, left, right with the corresponding key
+or the WASD keys.
+
+The objective of the game is to avoid the green boxes for as long as possible.
+
+The longer you avoid the boxes, the higher the natural score is.
+
+You can also get power ups.
+
+The blue box gives you a 5 projectiles that can be fired directly up from your position with the space bar.
+
+The red box repeals enemies away from you.
+
+The yellow box kills all enemies on the map.
+
+Each of these will increase your score.
+
+
+The List:
+[X] Score board
+[X] Movement
+[X] Enemy Spawning
+[X] Power up spawning
+[X] Enemy collision
+[X] Projectile collision
+[ ] Projectile tiled to power up
+[ ] Projectile timer - shoot 1 per X time (0.5s?)
+[ ] Polish
