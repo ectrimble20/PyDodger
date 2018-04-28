@@ -182,6 +182,10 @@ while game_running:
         if e.type == pygame.QUIT:
             game_running = False
             break
+        # TODO not really a bug, but when this is pressed while moving, it stops registering the press.
+        # I think I need to just use the queue and keep track of UP and DOWN keys for movement
+        # I'll probably need some kind of key manager to read from and update from the event queue.
+        # for now, I'm going to leave this as-is, just an observation from testing.
         if e.type == pygame.KEYDOWN:
             if e.key == pygame.K_SPACE:
                 spawn_projectile()
