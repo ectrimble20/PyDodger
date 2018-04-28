@@ -2,6 +2,8 @@ import pygame
 from random import randint
 from dodger_sprite import DodgerSprite
 from game_timer import GameTimer
+from surface_manager import SurfaceManager
+from group_manager import GroupManager
 
 
 # General settings
@@ -40,32 +42,24 @@ pygame.font.init()
 display = pygame.display.set_mode(resolution)
 pygame.key.set_repeat(50, 50)
 
+# build surface cache and populate it
+surface_cache = SurfaceManager()
+surface_cache.build("enemy_small", ENEMY_SMALL_SIZE, ENEMY_SMALL_SIZE, color_baddie)
+surface_cache.build("enemy_medium", ENEMY_MEDIUM_SIZE, ENEMY_MEDIUM_SIZE, color_baddie)
+surface_cache.build("enemy_large", ENEMY_LARGE_SIZE, ENEMY_LARGE_SIZE, color_baddie)
+surface_cache.build("player", PLAYER_SIZE, PLAYER_SIZE, color_player)
+surface_cache.build("projectile", PROJECTILE_SIZE, PROJECTILE_SIZE, color_pewpew_projectile)
+surface_cache.build("pu_projectile", POWER_UP_SIZE, POWER_UP_SIZE, color_pewpew_power_up)
+surface_cache.build("pu_repeal", POWER_UP_SIZE, POWER_UP_SIZE, color_repeal_power_up)
+surface_cache.build("pu_doomsday", POWER_UP_SIZE, POWER_UP_SIZE, color_doomsday_power_up)
 
-# build and cache surfaces
-cached_surfaces = {}
-cached_surfaces["enemy_small"] = pygame.Surface([ENEMY_SMALL_SIZE, ENEMY_SMALL_SIZE])
-cached_surfaces["enemy_small"].fill(color_baddie)
-cached_surfaces["enemy_medium"] = pygame.Surface([ENEMY_MEDIUM_SIZE, ENEMY_MEDIUM_SIZE])
-cached_surfaces["enemy_medium"].fill(color_baddie)
-cached_surfaces["enemy_large"] = pygame.Surface([ENEMY_LARGE_SIZE, ENEMY_LARGE_SIZE])
-cached_surfaces["enemy_large"].fill(color_baddie)
-cached_surfaces["player"] = pygame.Surface([PLAYER_SIZE, PLAYER_SIZE])
-cached_surfaces["player"].fill(color_player)
-cached_surfaces["projectile"] = pygame.Surface([PROJECTILE_SIZE, PROJECTILE_SIZE])
-cached_surfaces["projectile"].fill(color_pewpew_projectile)
-cached_surfaces["pu_projectile"] = pygame.Surface([POWER_UP_SIZE, POWER_UP_SIZE])
-cached_surfaces["pu_projectile"].fill(color_pewpew_power_up)
-cached_surfaces["pu_repeal"] = pygame.Surface([POWER_UP_SIZE, POWER_UP_SIZE])
-cached_surfaces["pu_repeal"].fill(color_repeal_power_up)
-cached_surfaces["pu_doomsday"] = pygame.Surface([POWER_UP_SIZE, POWER_UP_SIZE])
-cached_surfaces["pu_doomsday"].fill(color_doomsday_power_up)
-
-# Define our groups
-player_group = pygame.sprite.Group()
-enemy_group = pygame.sprite.Group()
-power_up_group = pygame.sprite.Group()
-pewpew_group = pygame.sprite.Group()
-top_gui_group = pygame.sprite.Group()
+# build our group manager
+group_manager = GroupManager()
+group_manager.add_group('enemy')
+group_manager.add_group('player')
+group_manager.add_group('power_up')
+group_manager.add_group('projectile')
+group_manager.add_group('gui')
 
 top_banner = pygame.sprite.Sprite()
 top_banner.image = pygame.Surface([SCREEN_WIDTH, 100])
@@ -73,12 +67,13 @@ top_banner.image.fill([255, 255, 255])
 top_banner.rect = top_banner.image.get_rect()
 top_banner.rect.x = 0
 top_banner.rect.y = 0
-top_gui_group.add(top_banner)
+group_manager.insert('gui', top_banner)
 
 gui_font = pygame.font.Font(None, 24)
 
-player = DodgerSprite(SCREEN_WIDTH // 2 + PLAYER_SIZE, SCREEN_HEIGHT - (PLAYER_SIZE * 5), cached_surfaces['player'])
-player_group.add(player)
+player = DodgerSprite(SCREEN_WIDTH // 2 + PLAYER_SIZE, SCREEN_HEIGHT - (PLAYER_SIZE * 5),
+                      surface_cache.get_surface('player'))
+group_manager.insert('player', player)
 
 
 def group_updates(dt):
@@ -87,35 +82,34 @@ def group_updates(dt):
     # check if we killed anything first
     # this needs some adjustment cuz we can't track how many enemies died... oh wait
     killed = 0
-    alive_before = len(enemy_group.sprites())
-    pygame.sprite.groupcollide(pewpew_group, enemy_group, True, True)
-    killed = alive_before - len(enemy_group.sprites())
+    alive_before = group_manager.count('enemy')
+    pygame.sprite.groupcollide(group_manager.get_raw_group('projectile'), group_manager.get_raw_group('enemy'), True,
+                               True)
+    killed = alive_before - group_manager.count('enemy')
     PLAYER_SCORE += killed
-    for sprite in pewpew_group.sprites():
+    for sprite in group_manager.get_sprites('projectile'):
         sprite.move(0, -PROJECTILE_SPEED * dt)
         if sprite.rect.y < 0 or sprite.rect.y > SCREEN_HEIGHT:
-            pewpew_group.remove(sprite)
             sprite.kill()
-    for sprite in enemy_group.sprites():
+    for sprite in group_manager.get_sprites('enemy'):
         sprite.move(0, BADDIE_SPEED * dt)
         if sprite.rect.y < 0 or sprite.rect.y > SCREEN_HEIGHT:
-            enemy_group.remove(sprite)
             sprite.kill()
-    collisions = pygame.sprite.spritecollideany(player, enemy_group)
+    collisions = pygame.sprite.spritecollideany(player, group_manager.get_raw_group('enemy'))
     if collisions is not None:
         collisions.kill()
         PLAYER_SCORE -= 1
         player.kill()
         player = DodgerSprite(SCREEN_WIDTH // 2 + PLAYER_SIZE, SCREEN_HEIGHT - (PLAYER_SIZE * 5),
-                              cached_surfaces['player'])
-        player_group.add(player)
+                              surface_cache.get_surface('player'))
+        group_manager.insert('player', player)
 
 
 def spawn_projectile():
     # projectile offset is player rect X - 1/2 player size, player Y + projectile size
     px = player.rect.x + ((PLAYER_SIZE // 2) - (PROJECTILE_SIZE // 2))
     py = player.rect.y
-    spawn_at(px, py, cached_surfaces["projectile"], pewpew_group)
+    spawn_at(px, py, surface_cache.get_surface("projectile"), 'projectile')
 
 
 def spawn_random_baddie():
@@ -126,12 +120,12 @@ def spawn_random_baddie():
         baddie_size = "enemy_medium"
     if size == 2:
         baddie_size = "enemy_large"
-    spawn_at(rx, 0, cached_surfaces[baddie_size], enemy_group)
+    spawn_at(rx, 0, surface_cache.get_surface(baddie_size), 'enemy')
 
 
 def spawn_at(x, y, surface, group):
     s = DodgerSprite(x, y, surface)
-    group.add(s)
+    group_manager.insert(group, s)
 
 
 def check_keyboard_user_input(dt):
@@ -194,7 +188,7 @@ while game_running:
     if timer.get_time('power_up_spawn') > power_up_spawn:
         power_up_spawn = randint(10, 40)
         timer.set_timer_to_zero('power_up_spawn')
-        spawn_at(randint(100, 700), randint(100, 500), cached_surfaces["pu_projectile"], power_up_group)
+        spawn_at(randint(100, 700), randint(100, 500), surface_cache.get_surface('pu_projectile'), "power_up")
     if timer.get_time('wave_spawn') > spawn_wave_every:
         for _ in range(0, randint(5, 20)):
             spawn_random_baddie()
@@ -209,11 +203,7 @@ while game_running:
     # 4: update text
     # repeat
     display.fill(color_background)
-    enemy_group.draw(display)
-    player_group.draw(display)
-    power_up_group.draw(display)
-    pewpew_group.draw(display)
-    top_gui_group.draw(display)
+    group_manager.draw(display)
     # draw score text
     render = gui_font.render("Score: {}".format(PLAYER_SCORE), 0, (0, 0, 0), (255, 255, 255))
     display.blit(render, (20, 20))
